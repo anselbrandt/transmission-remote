@@ -22,4 +22,6 @@ local_commands = f"sshpass -p {SSH_PASSWORD} rsync -rP {LOCAL_PATH}/ {SSH_USER}@
     " "
 )
 
-cleanup_commands = f"rm -rf {LOCAL_PATH} && mkdir {LOCAL_PATH}"
+cleanup_command = f"rm -rf {LOCAL_PATH}".split(" ")
+
+mkdir_command = f"mkdir {LOCAL_PATH}"

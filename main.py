@@ -12,7 +12,8 @@ import redis
 
 
 from constants import (
-    cleanup_commands,
+    cleanup_command,
+    mkdir_command,
     local_commands,
     rsync_commands,
     ROOT_PATH,
@@ -54,7 +55,8 @@ def startLocalSync():
 
 
 def startCleanup():
-    run(cleanup_commands)
+    run(cleanup_command)
+    run(mkdir_command)
 
 
 @app.get("/", response_class=HTMLResponse)
