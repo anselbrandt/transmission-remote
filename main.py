@@ -96,13 +96,15 @@ async def controls(request: Request, response: Response):
 
 
 @app.post("/localsync")
-async def localsync(response: Response):
+async def localsync(background_tasks: BackgroundTasks, response: Response):
+    background_tasks.add_task(startLocalSync)
     response.status_code = status.HTTP_200_OK
     return response
 
 
 @app.post("/cleanup")
-async def cleanup(response: Response):
+async def cleanup(background_tasks: BackgroundTasks, response: Response):
+    background_tasks.add_task(startCleanup)
     response.status_code = status.HTTP_200_OK
     return response
 
