@@ -1,17 +1,21 @@
-import asyncio
-from datetime import datetime
-import time
+from subprocess import Popen, PIPE
 from typing import Optional
+import asyncio
+import os
+
 
 from fastapi import BackgroundTasks, FastAPI, Request, Header, Response, status
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import redis
 from sse_starlette.sse import EventSourceResponse
+import redis
 
 
-from constants import ROOT_PATH
+from constants import (
+    commands,
+    ROOT_PATH,
+)
 from utils import (
     formatSize,
     getFree,
@@ -30,16 +34,15 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 
-def startBackup():
-    for i in range(1, 30):
-        now = datetime.now()
-        if cache.exists("messages"):
-            current = cache.get("messages")
-            messages = f"{current}<div>{now}</div>"
-            cache.set("messages", messages, ex=60)
-        else:
-            cache.set("messages", f"<div>{str(now)}</div>", ex=60)
-        time.sleep(1)
+def startRsync():
+    with Popen(commands, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
+        for line in p.stdout:
+            if cache.exists("messages"):
+                current = cache.get("messages")
+                messages = f"{current}<div>{line}</div>"
+                cache.set("messages", messages, ex=30)
+            else:
+                cache.set("messages", f"<div>{str(line)}</div>", ex=30)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -88,11 +91,40 @@ async def free(request: Request):
     return templates.TemplateResponse("freespace.html", context)
 
 
-@app.post("/start")
-async def start(background_tasks: BackgroundTasks, response: Response):
-    background_tasks.add_task(startBackup)
-    response.status_code = status.HTTP_200_OK
-    return response
+@app.get("/controls", response_class=HTMLResponse)
+async def controls(request: Request, response: Response):
+    if cache.exists("messages"):
+        response.status_code = status.HTTP_200_OK
+        return response
+    else:
+        context = {
+            "request": request,
+            "rootPath": ROOT_PATH,
+        }
+        return templates.TemplateResponse("controls.html", context)
+
+
+@app.get("/console", response_class=HTMLResponse)
+async def console(request: Request, response: Response):
+    if cache.exists("messages"):
+        context = {
+            "request": request,
+            "rootPath": ROOT_PATH,
+        }
+        return templates.TemplateResponse("console.html", context)
+    else:
+        response.status_code = status.HTTP_200_OK
+        return response
+
+
+@app.post("/rsync", response_class=HTMLResponse)
+async def rsync(background_tasks: BackgroundTasks, request: Request):
+    background_tasks.add_task(startRsync)
+    context = {
+        "request": request,
+        "rootPath": ROOT_PATH,
+    }
+    return templates.TemplateResponse("console.html", context)
 
 
 @app.get("/messages")
@@ -105,7 +137,7 @@ async def messages():
                     yield messages
                 else:
                     yield ""
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.25)
         except asyncio.CancelledError as error:
             print(error)
 
