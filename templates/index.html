@@ -86,8 +86,14 @@
           </tbody>
         </table>
       </div>
-      <div hx-ext="sse" sse-connect="/api/messages" sse-swap="message">
-        Contents of this box will be updated in real time with every SSE message
+      <div class="m-2">
+        <button hx-post="/api/start" hx-swap="outerHTML">Start Backup</button>
+      </div>
+      <div class="m-2">
+        <div hx-ext="sse" sse-connect="/api/messages" sse-swap="message">
+          Contents of this box will be updated in real time with every SSE
+          message
+        </div>
       </div>
     </div>
   </body>
