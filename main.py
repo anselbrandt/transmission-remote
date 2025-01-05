@@ -1,4 +1,4 @@
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, run
 from typing import Optional
 import asyncio
 import os
@@ -13,7 +13,9 @@ import redis
 
 
 from constants import (
-    commands,
+    cleanup_commands,
+    local_commands,
+    rsync_commands,
     ROOT_PATH,
 )
 from utils import (
@@ -35,7 +37,7 @@ templates = Jinja2Templates(directory="templates")
 
 
 def startRsync():
-    with Popen(commands, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
+    with Popen(rsync_commands, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
         for line in p.stdout:
             if cache.exists("messages"):
                 current = cache.get("messages")
@@ -43,6 +45,17 @@ def startRsync():
                 cache.set("messages", messages, ex=30)
             else:
                 cache.set("messages", f"<div>{str(line)}</div>", ex=30)
+
+
+def startLocalSync():
+    with Popen(local_commands, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
+        for line in p.stdout:
+            cache.set("isSyncing", "true")
+        cache.set("isSyncing", "false")
+
+
+def startCleanup():
+    run(cleanup_commands)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -67,6 +80,31 @@ async def add(magnetlink: MagnetLink):
     except Exception as error:
         print(str(error))
         return str(error)
+
+
+@app.get("/localcontrols", response_class=HTMLResponse)
+async def controls(request: Request, response: Response):
+    if cache.get("isSyncing") == "true":
+        response.status_code = status.HTTP_200_OK
+        return response
+    else:
+        context = {
+            "request": request,
+            "rootPath": ROOT_PATH,
+        }
+        return templates.TemplateResponse("localControls.html", context)
+
+
+@app.post("/localsync")
+async def localsync(response: Response):
+    response.status_code = status.HTTP_200_OK
+    return response
+
+
+@app.post("/cleanup")
+async def cleanup(response: Response):
+    response.status_code = status.HTTP_200_OK
+    return response
 
 
 @app.delete("/delete/{id}")
@@ -101,7 +139,7 @@ async def controls(request: Request, response: Response):
             "request": request,
             "rootPath": ROOT_PATH,
         }
-        return templates.TemplateResponse("controls.html", context)
+        return templates.TemplateResponse("rsyncButton.html", context)
 
 
 @app.get("/console", response_class=HTMLResponse)
