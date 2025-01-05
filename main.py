@@ -137,7 +137,7 @@ async def messages():
                     yield messages
                 else:
                     yield ""
-                await asyncio.sleep(0.25)
+                await asyncio.sleep(0.5)
         except asyncio.CancelledError as error:
             print(error)
 
