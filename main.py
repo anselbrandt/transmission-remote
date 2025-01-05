@@ -1,7 +1,6 @@
 from subprocess import Popen, PIPE, run
 from typing import Optional
 import asyncio
-import os
 
 
 from fastapi import BackgroundTasks, FastAPI, Request, Header, Response, status
