@@ -1,9 +1,14 @@
+import asyncio
+from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Optional
 
 from fastapi import FastAPI, Request, Header, Response, status
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+import redis
+from sse_starlette.sse import EventSourceResponse
 
 
 from constants import ROOT_PATH
@@ -14,6 +19,8 @@ from utils import (
     MagnetLink,
     torrentClient,
 )
+
+cache = redis.Redis(decode_responses=True)
 
 
 app = FastAPI(root_path=ROOT_PATH)
@@ -67,3 +74,24 @@ async def free(request: Request):
         "freespace": round(freepace / (2**30), 1),
     }
     return templates.TemplateResponse("freespace.html", context)
+
+
+@app.get("/messages")
+async def console(request: Request):
+    async def publisher():
+        try:
+            while True:
+                time = datetime.now()
+                if cache.exists("messages"):
+                    current = cache.get("messages")
+                    messages = f"{current}<div>{time}</div>"
+                    cache.set("messages", messages, ex=60)
+                    yield messages
+                else:
+                    cache.set("messages", f"<div>{str(time)}</div>", ex=60)
+                    yield time
+                await asyncio.sleep(1)
+        except asyncio.CancelledError as error:
+            print(error)
+
+    return EventSourceResponse(publisher())
